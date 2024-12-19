@@ -30,6 +30,10 @@ library(stringr)
 dat <- read.csv("ESM_Item_Rep_selection.csv") # this is the format you can download from the repository!
 # means that when we finalize the script, the data should be in the final format
 # for this bit of the code
+dat_all <- dat # save the whole dataset
+dat <- dat[which(dat$item_ID %in% 1:3317), ]  # work on a subset (items 1-3317);
+# these items were in the repository before the tag system was implemented in 
+# the submission form -> tags assigned by the repository team
 
 # clean and process the descriptions and items
 dat$description_clean <- dat %>%
@@ -45,7 +49,7 @@ dat$description_clean <- dat %>%
 dat <- dat %>% 
   mutate(english_clean = str_to_lower(english))
 
-# assign tags to items: tags were decided on by the ESM item repository team
+# automatic tag assignment
 tags <-
   data.frame(
     tag = c(
@@ -180,7 +184,64 @@ for (i in 1:nrow(dat)) {
   }
 }
 
-# TO ADD: tags we assign manually 
+# manual tag assignment part 1: integrate Milla's corrections to automated ones
+check1 <- read.csv("ESIR_tags_R.csv")
+sum(grepl("; ", check1$tag_automated))
+sum(grepl(" ;", check1$tag_automated))
+sum(grepl("; ", check1$check1_tag_remove))
+sum(grepl(" ;", check1$check1_tag_remove)) # check there are no spaces
+check1$tag_automated_check1 <- rep(NA, times = nrow(check1)) # create new col
+# edit the tags
+for (i in 1:nrow(check1)) {
+  if (check1$check1_tag_remove[i] != "") {
+    remove_tags <-
+      str_split(string = check1$check1_tag_remove[i],
+                pattern = ";")
+    automated_tags <-
+      str_split(string = check1$tag_automated[i], pattern = ";")
+    for (k in 1:length(remove_tags[[1]])) {
+      automated_tags[[1]] <-
+        automated_tags[[1]][-which(remove_tags[[1]][k] == automated_tags[[1]])]
+    }
+    check1$tag_automated_check1[i] <-
+      paste(automated_tags[[1]], collapse = ";")
+  }
+  if (check1$check1_tag_add[i] != "") {
+    add_tags <-
+      str_split(string = check1$check1_tag_add[i], pattern = ";")
+    automated_tags <-
+      str_split(string = check1$tag_automated_check1[i],
+                pattern = ";")
+    for (j in 1:length(add_tags[[1]])) {
+      if (sum(add_tags[[1]][j] == automated_tags[[1]]) == 0) {
+        automated_tags[[1]][length(automated_tags[[1]]) + 1] <-
+          add_tags[[1]][j]
+      }
+    }
+    check1$tag_automated_check1[i] <-
+      paste(automated_tags[[1]], collapse = ";")
+  }
+}
+for (i in 1:nrow(check1)) {
+  if (is.na(check1$tag_automated_check1[i])) {
+    check1$tag_automated_check1[i] <- check1$tag_automated[i]
+  }
+}
+# check for random ; and spaces
+for (i in 1:nrow(check1)) {
+  if (grepl(check1$tag_automated_check1[i], " ")) {
+    check1$tag_automated_check1[i] <- gsub(" ", "", check1$tag_automated_check1[i])
+  }
+  if (substring(check1$tag_automated_check1[i], 1, 1) == ";") {
+    check1$tag_automated_check1[i] <- gsub(";", "", check1$tag_automated_check1[i])
+  }
+}
+check1 <- check1[, c(1:4, 12, 6:9, 5, 10:11)] # reorder
+write.csv(check1, file = "check1.csv")
+
+# manual tag assignment part 2: integrate checkers' corrections to automated ones
+# check2 <- read.csv()
+# derive final tags and add to the matching item IDs
 
 # TO ADD: remove extra columns
 
